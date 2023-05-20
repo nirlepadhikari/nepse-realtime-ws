@@ -40,3 +40,8 @@ async def websocket_endpoint(websocket: WebSocket):
         except WebSocketDisconnect:
             clients.remove(websocket)
             break
+
+
+@app.get("/health")
+def read_health():
+    return {"status": "healthy"}
