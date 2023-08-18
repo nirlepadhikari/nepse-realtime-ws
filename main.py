@@ -1,7 +1,7 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI
 from aiohttp import ClientSession
 import pandas as pd
-import asyncio
+import pusher
 
 app = FastAPI()
 
@@ -16,30 +16,11 @@ async def scrape_site():
     data = df[0].iloc[:,:7]
     data.columns = ['Symbol', 'LTP', 'Change', 'Open', 'High', 'Low', 'Volume']
     data = data.to_json(orient='records')
+    pusher_client = pusher.Pusher(app_id=u'6022140857', key=u'1bc14f68-fef6-4627-b25b-a4d8668fa701', secret=u'{fE,g?*o%I=AGMOT|rB}|{4@{Kt;i%hI``DrFJT:qyA=RxZ["3mTq[(1WtQ04w1', cluster=u'ap-south-1',
+                              host="container-service-1.i38vjrojbltka.ap-south-1.cs.amazonlightsail.com"
+                              )
+    pusher_client.trigger(u'liveData', u'priceChange', {'data': data})
     return data
-
-async def broadcast():
-    """Broadcast the scraped data to all connected clients."""
-    while True:
-        data = await scrape_site()
-        broadcast_coros = (client.send_text(data) for client in list(clients))
-        await asyncio.gather(*broadcast_coros, return_exceptions=True)
-        await asyncio.sleep(30)
-
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(broadcast())  # Start the broadcast task when the app starts
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    clients.add(websocket)
-    while True:
-        try:
-            await websocket.receive_text()  # Keep the connection open by awaiting for new messages
-        except WebSocketDisconnect:
-            clients.remove(websocket)
-            break
 
 
 @app.get("/health")
